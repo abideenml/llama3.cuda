@@ -8,27 +8,23 @@ llama3.cuda is an implementation of Llama 3.1 in pure C/CUDA. Built on top of Ka
 
 2024-07-31
 ----------
-Integrated all the kernels and components into llama3_forward and llama3_backward, 
-successfully combining the individual elements into a cohesive system.
+integrated all the kernels and components into llama3_forward and llama3_backward.
 
 2024-07-18
 ----------
-Completed the implementation of attention_forward_gqa and attention_backward_gqa, 
-ensuring the system could efficiently manage grouped query attention.
+completed the implementation of attention_forward_gqa and attention_backward_gqa.
 
 2024-07-13
 ----------
-Implemented the repeat_interleave function and delved into the intricacies of 
-attention_forward_gqa.
+implemented the repeat_interleave function used in gqa.
 
 2024-07-08
 ----------
-Implemented the precompute-cis-kernel, gaining a deep understanding 
-of RoPE (Rotary Position Embedding).
+implemented the precompute-cis-kernel of RoPE(Rotary Position Embedding).
 
 2024-07-02
 ----------
-Successfully implemented swiGLU (the feed-forward network) after a thorough study.
+implemented swiGLU.
 Utilized four custom kernels to achieve the following:
 - matmul_forward for xW.
 - matmul_forward for xV.
@@ -37,8 +33,7 @@ Utilized four custom kernels to achieve the following:
 
 2024-06-23
 ----------
-Explored and analyzed the architectural differences between GPT and LLaMA. 
-Developed a solid theoretical understanding of these models and clarified key concepts.
+understanding forward and backward kernels of attention, gelu, matmul, cse and more...
 
 ```
 
@@ -213,7 +208,7 @@ make train_llama_fp32cu
 
 ## 📝 Implementation Details:
 
-In `attention_forward_gqa`, I have leveraged the optimized code from `llm.c` that uses CuBLAS for matmul-computations, with addition of positional information in `q` and `k` matrices, with the rotational-component of `freq_cos` and `freq_sin` (computed from `precompute_freq_cis kernel`).
+In `attention_forward_gqa`, I have used the code from `llm.c` that uses CuBLAS for matmul-computations, with addition of positional information in `q` and `k` matrices, with the rotational-component of `freq_cos` and `freq_sin` (computed from `precompute_freq_cis kernel`).
 
 - `apply_rope_forward_kernel` and `apply_rope_backward_kernel`, both kernels are implemented using simple parallelizing techniques, parallelized over b,t,c.
 - `swiglu_forward_kernel` leverages simple parallelizing technique over b,t,c. The `inp` and `gate` params to swiglu are computed using the `matmul_kernel` (very-optimized, utilized cuBLAS).
