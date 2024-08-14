@@ -1,6 +1,47 @@
 # llama3.cuda
 
-llama3.cuda is an implementation of Llama 3.1 in pure C/CUDA. I have implemented three major kernels:
+llama3.cuda is an implementation of Llama 3.1 in pure C/CUDA.
+
+```bash
+
+## Research log
+
+2024-07-31
+----------
+Integrated all the kernels and components into llama3_forward and llama3_backward, 
+successfully combining the individual elements into a cohesive system.
+
+2024-07-18
+----------
+Completed the implementation of attention_forward_gqa and attention_backward_gqa, 
+ensuring the system could efficiently manage grouped query attention.
+
+2024-07-13
+----------
+Implemented the repeat_interleave function and delved into the intricacies of 
+attention_forward_gqa.
+
+2024-07-08
+----------
+Implemented the precompute-cis-kernel, gaining a deep understanding 
+of RoPE (Rotary Position Embedding).
+
+2024-07-02
+----------
+Successfully implemented swiGLU (the feed-forward network) after a thorough study.
+Utilized four custom kernels to achieve the following:
+- matmul_forward for xW.
+- matmul_forward for xV.
+- swiglu_forward to combine results.
+- matmul_forward for projecting back to the original dimension.
+
+2024-06-23
+----------
+Explored and analyzed the architectural differences between GPT and LLaMA. Developed a solid theoretical understanding of these models and clarified key concepts.
+
+```
+
+I have implemented three major kernels:
 
 ### `swiglu_forward_kernel`
 
@@ -177,6 +218,12 @@ In `attention_forward_gqa`, I have leveraged the optimized code from `llm.c` tha
 - `swiglu_forward_kernel` leverages simple parallelizing technique over b,t,c. The `inp` and `gate` params to swiglu are computed using the `matmul_kernel` (very-optimized, utilized cuBLAS).
 - `precompute_freq_cis` kernel also leverages simple parallelizing technique over c/2 (`embed_dim/2`) elements, since in one-invokation, we are computing 2-components `freq_cos` (real-part), and `freq_sin`(imaginary part), for each embed_column.
 
+## Profiling on NCU:
+
+![alt text](image.png)
+
+
+`encoder_forward_kernel` achieves the highest memory throughput of **90.77%**, while the `apply_rope_forward_kernel` follows closely with **88.73%**. The `matmul_forward_kernel` exhibits strong compute throughput at **62.27%** but uses **123** registers, which could limit performance due to register pressure. The `repeat_interleave_forward_kernel` benefits from a large grid size of **73728** and relatively low register usage (**16**), leading to good occupancy and parallelism, though its impact is limited by a short duration of **0.45%**.
 
 
 ## 🤞 Todos
@@ -187,3 +234,12 @@ Finally there are a couple more todos which I'll hopefully add really soon:
  🌟 using `Shared-Memory` and `reductions` for faster access 
  🌟 Using `co-operative groups` to implement warp-level synchronization (and see if significant perf gains).
  🌟 Apply kernel fusions if possible.
+
+
+## Connect with me
+
+If you'd love to have some more AI-related content in your life :nerd_face:, consider:
+
+* Connect and reach me on [LinkedIn](https://www.linkedin.com/in/zaiinulabideen/) and [Twitter](https://twitter.com/zaynismm)
+* Follow me on 📚 [Medium](https://medium.com/@zaiinn440)
+* Check out my 🤗 [HuggingFace](https://huggingface.co/abideen)
