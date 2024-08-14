@@ -1,6 +1,6 @@
 # llama3.cuda
 
-llama3.cuda is an implementation of Llama 3.1 in pure C/CUDA.
+llama3.cuda is an implementation of Llama 3.1 in pure C/CUDA. Built on top of Karpathys llm.c.
 
 ```bash
 
@@ -37,7 +37,8 @@ Utilized four custom kernels to achieve the following:
 
 2024-06-23
 ----------
-Explored and analyzed the architectural differences between GPT and LLaMA. Developed a solid theoretical understanding of these models and clarified key concepts.
+Explored and analyzed the architectural differences between GPT and LLaMA. 
+Developed a solid theoretical understanding of these models and clarified key concepts.
 
 ```
 
