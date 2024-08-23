@@ -1,16 +1,3 @@
-/*
-GPT-2 Transformer Neural Net trained in raw CUDA
-Non-trivial notes to be aware of:
-
-We are being clever in the backward pass to conserve memory.
-In particular, all parameters use a += in the backward pass, so we
-can later do gradient accumulation. But all activations have = instead of +=
-because these are faster (just read, no write). This is okay for all activations
-except for those in the residual stream, where the gradients have to add. We make
-sure that those parts work out ok and that we do a += as necessary. E.g.,
-the layernorms are connected to the residuals so we += in layernorm backward.
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
