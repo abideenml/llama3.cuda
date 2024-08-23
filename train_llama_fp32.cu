@@ -1,5 +1,14 @@
 /*
-LLama3 Transformer Neural Net trained in raw CUDA
+GPT-2 Transformer Neural Net trained in raw CUDA
+Non-trivial notes to be aware of:
+
+We are being clever in the backward pass to conserve memory.
+In particular, all parameters use a += in the backward pass, so we
+can later do gradient accumulation. But all activations have = instead of +=
+because these are faster (just read, no write). This is okay for all activations
+except for those in the residual stream, where the gradients have to add. We make
+sure that those parts work out ok and that we do a += as necessary. E.g.,
+the layernorms are connected to the residuals so we += in layernorm backward.
 */
 
 #include <stdio.h>
@@ -10,12 +19,18 @@ LLama3 Transformer Neural Net trained in raw CUDA
 #include <float.h>
 #include <string.h>
 #include <unistd.h>
+
+// GPU / CUDA related
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+// our own utilities
+// defines: fopenCheck, freadCheck, fcloseCheck, fseekCheck, mallocCheck
 #include "llmc/utils.h"
+// defines: tokenizer_init, tokenizer_decode, tokenizer_free
 #include "llmc/tokenizer.h"
+// defines: dataloader_init, dataloader_reset, dataloader_next_batch, dataloader_free
 #include "llmc/dataloader.h"
 
 // ----------------------------------------------------------------------------
@@ -106,8 +121,10 @@ __global__ void encoder_backward_kernel(float4 *dwte, const float4 *dout, const 
 }
 
 /**
+ *
  * A helper kernel using for RoPE
- */
+ *
+ **/
 __global__ void precompute_freqs_cis_kernel(float *freqs_cos, float *freqs_sin, int dim, int end, float theta)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -1466,7 +1483,7 @@ void fused_classifier3(float *logits, float *losses,
 }
 
 // ----------------------------------------------------------------------------
-// LLama3 model definition
+// GPT-2 model definition
 
 typedef struct
 {
@@ -1739,7 +1756,7 @@ typedef struct
     float *cpu_losses; // CPU buffer to copy the losses to, allocated with cudaMallocHost
 } LLaMA3;
 
-void llama3_build_from_checkpoint(LLaMA3 *model, const char *checkpoint_path)
+void gpt2_build_from_checkpoint(LLaMA3 *model, const char *checkpoint_path)
 {
 
     // read in model from a checkpoint file
@@ -1755,7 +1772,7 @@ void llama3_build_from_checkpoint(LLaMA3 *model, const char *checkpoint_path)
     {
         // was bumped from 1 -> 3 to incorporate the padded vocab size
         fprintf(stderr, "Bad version in model file\n");
-        fprintf(stderr, "---> HINT: try to re-run `python train_llama3.py`\n");
+        fprintf(stderr, "---> HINT: try to re-run `python train_gpt2.py`\n");
         exit(EXIT_FAILURE);
     }
 
@@ -2234,10 +2251,11 @@ void llama3_free(LLaMA3 *model)
 }
 
 #ifndef TESTING
+// if we are TESTING (see test_gpt2.cu), we'll skip the int main below
 // ----------------------------------------------------------------------------
 // sampler: takes probabilities and samples integers from them
 
-#define Llama3_EOT 50256
+#define GPT2_EOT 50256
 
 unsigned int random_u32(unsigned long long *state)
 {
@@ -2327,7 +2345,7 @@ void logger_free(Logger *logger)
 
 void error_usage()
 {
-    fprintf(stderr, "Usage:   ./train_llama3_fp32cu [options]\n");
+    fprintf(stderr, "Usage:   ./train_gpt2fp32cu [options]\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -i <string> train data filename pattern (default = dev/data/tinyshakespeare/tiny_shakespeare_train.bin)\n");
     fprintf(stderr, "  -j <string> val data filename pattern (default = dev/data/tinyshakespeare/tiny_shakespeare_val.bin)\n");
@@ -2449,8 +2467,9 @@ int main(int argc, char *argv[])
     printf("| TF32                  | %-50s |\n", enable_tf32 ? "enabled" : "disabled");
     printf("+-----------------------+----------------------------------------------------+\n");
 
-    // build the Llama3 model from a checkpoint
+    // build the GPT-2 model from a checkpoint
     LLaMA3 model;
+    // gpt2_build_from_checkpoint(&model, "gpt2_124M.bin");
     /**
      * Not loading pre_trained model weights. Randomly Initializing model weights using Xavier Initialization
      */
@@ -2478,7 +2497,7 @@ int main(int argc, char *argv[])
     printf("| val_num_batches       | %-50d |\n", val_num_batches);
     printf("+-----------------------+----------------------------------------------------+\n");
 
-    // print model parameter allocations from llama3_build_from_checkpoint down here to not mess up our table above
+    // print model parameter allocations from gpt2_build_from_checkpoint down here to not mess up our table above
     printf("allocated %d MiB for model parameters\n", (int)round(model.num_parameters * sizeof(float) / (1024 * 1024)));
 
     // set up the Logger
@@ -2487,7 +2506,7 @@ int main(int argc, char *argv[])
 
     // build the Tokenizer
     Tokenizer tokenizer;
-    tokenizer_init(&tokenizer, "llama3_tokenizer.bin");
+    tokenizer_init(&tokenizer, "gpt2_tokenizer.bin");
 
     // some memory for generating samples from the model
     unsigned long long rng_state = 1337;
@@ -2520,10 +2539,10 @@ int main(int argc, char *argv[])
         // once in a while do model inference to print generated text
         if (step > 0 && step % sample_every == 0 || last_step)
         {
-            // fill up gen_tokens with the Llama3_EOT, which kicks off the generation
+            // fill up gen_tokens with the GPT2_EOT, which kicks off the generation
             for (int i = 0; i < B * T; ++i)
             {
-                gen_tokens[i] = Llama3_EOT;
+                gen_tokens[i] = GPT2_EOT;
             }
             // now sample from the model autoregressively
             printf("generating:\n---\n");
