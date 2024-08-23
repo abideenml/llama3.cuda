@@ -5,6 +5,41 @@ llama3.cuda is an implementation of Llama 3.1 in pure C/CUDA. Built on top of Ka
 ```bash
 
 ## Research log
+2024-08-23
+----------
+integrated `repeat_kv`and `apply_rope` into already optimized MHA implementaion. 
+changed the implementation of `permute_kernel` used in previous MHA (since the K,V shapes were 
+changed from `[B,T,NH,HS]` to `[B,T,num_kv_heads, HS]`)
+
+2024-08-21
+----------
+`repeat_kv` optimized  with cma. perf gain from 
+`time 0.3275 ms` for the `block_size=32`, to `time 0.3202 ms` (a hard-coded block_size (=head_dim))
+
+2024-08-18
+----------
+optimized `swiglu` kernel using `bfloat16` and the _Packed128_ data structure which helps in 
+faster **load/store** operations. Perf gain from `time 0.2018 ms` to `time 0.1711 ms` in 
+forward pass, and `time 0.3049 ms` to `time 0.2900 ms` in 
+backward-pass, with the `block_size=32`.
+
+2024-08-12
+----------
+optimized `precompute_cis` using simple coalesced memory accesses. 
+perf impraved from `time 0.0410 ms` to `time 0.0098 ms` for the `block_size=32`
+
+2024-08-04
+----------
+optimized kernels of `apply_rope` with coalesced memory access, controlled warp-divergence, 
+and shared memory access. The kernel was found to Memory-Bandwidth bound, so it was 
+limited by GPU memory bandwidth, and thus no significant performance gains. Although, we can try 
+using efficient load/store operations to improve performance
+
+2024-08-01
+----------
+added 2 optimized gpu kernels of rmsnorm using **cooperative-groups**. performance gain 
+from `time 0.5607 ms` to `time 0.2380 ms` in forward pass, and `time 3.4939 ms` to `time 0.3957 ms` 
+in backward-pass, with the `block_size=32`
 
 2024-07-31
 ----------
@@ -213,6 +248,8 @@ In `attention_forward_gqa`, I have used the code from `llm.c` that uses CuBLAS f
 - `apply_rope_forward_kernel` and `apply_rope_backward_kernel`, both kernels are implemented using simple parallelizing techniques, parallelized over b,t,c.
 - `swiglu_forward_kernel` leverages simple parallelizing technique over b,t,c. The `inp` and `gate` params to swiglu are computed using the `matmul_kernel` (very-optimized, utilized cuBLAS).
 - `precompute_freq_cis` kernel also leverages simple parallelizing technique over c/2 (`embed_dim/2`) elements, since in one-invokation, we are computing 2-components `freq_cos` (real-part), and `freq_sin`(imaginary part), for each embed_column.
+
+![RMSNorm Top-Comments](./rmsnorm-top-exec-comments.jpeg)
 
 ## Profiling on NCU:
 
